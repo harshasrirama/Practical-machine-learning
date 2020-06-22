@@ -1,0 +1,138 @@
+---
+title: "Practical machine learning project"
+author: "Sri Harsha Sriramakavacham"
+date: "23/06/2020"
+output: html_document
+---
+
+
+## 1. Background and Problem statement
+
+Many People are using devices such as Jawbone Up, Nike FuelBand, and Fitbit to track  themselves regularly to improve their health. One thing that these people regularly do is quantify how much of a particular activity they do, but they rarely quantify how well they do it. 
+
+As a part of the practical machine learning project, our goal will be to use data from accelerometers on the belt, forearm, arm, and dumbell of 6 participants and quantify their performance using classe as the target variable
+
+## 2. Loading packages and data
+
+We have loaded caret (to run models) and ggplot2 packages (to creates plots) and also loaded the testing and training data 
+
+```{r load packages}
+
+library(caret)
+library(ggplot2)
+library(dplyr)
+library(readr)
+
+training <- read.csv("~/project/pml-training.csv", na.strings = c("NA", "#DIV/0!", ""), stringsAsFactors = FALSE , header = TRUE)
+testing <- read.csv("~/project/pml-testing.csv",  na.strings = c("NA", "#DIV/0!", ""),stringsAsFactors = FALSE , header = TRUE)
+
+```
+
+
+## 3. Exploring and cleaning data
+
+We need to understand the data before performing any analysis, we do know that "classe" variable gives the classes and need to create a model using other variables in the data
+
+```{r Data Exploring}
+head(training)
+head(testing)
+```
+
+We can see that the first 7 columns of the training and testing data can be removed as they show the name of the participants/date and other info that have little impat on the model. We also see that there are columns with "NA" and need to be removed from the analysis
+
+```{r Data Cleaning}
+# Removing first 7 columns
+training_1 <- training [-c(1:7)]
+testing_1 <- testing [-c(1:7)]
+
+
+#Removing columns with NA
+training_2 <- training_1[, colSums(is.na(training_1)) == 0]
+testing_2 <- testing_1[, colSums(is.na(testing_1)) == 0]
+ 
+ 
+ dim(training_2)
+ dim(testing_2)
+ table(training_2$classe)
+```
+
+## 4. Data partition
+
+```{r Data partition}
+
+# Data partition
+set.seed(2567)
+inTrain <- createDataPartition(training_2$classe, p = 0.75)[[1]]
+training_final <- training_2[inTrain,]
+validation_final <- training_2[-inTrain,]
+
+dim(training_final)
+dim(validation_final)
+
+```
+
+We can also check using near zero variance function to remove NZV variables
+
+## 5.a. Prediction with decision tree
+
+```{r Decision tree}
+library(rattle)
+library(e1071)
+
+model_dt <- train(classe ~ ., data = training_final , method = "rpart")
+fancyRpartPlot(model_dt$finalModel)
+
+```
+
+
+```{r Decision tree Accuracy}
+
+prediction_dt <- predict(model_dt, newdata = validation_final)
+cm_dt <- confusionMatrix(prediction_dt,as.factor(validation_final$classe))
+cm_dt
+
+```
+
+We can see that the model accuracy is around 49% which is poor
+
+## 5.b. Prediction with Random forest
+
+```{r Random forest}
+
+controlRF <- trainControl(method="cv", number=3, verboseIter=FALSE)
+model_rf <- train(classe ~ ., data=training_final, method="rf", trControl=controlRF)
+model_rf$finalModel
+
+```
+
+```{r Random forest accuracy}
+
+prediction_rf <- predict(model_rf, newdata = validation_final)
+cm_rf <- confusionMatrix(prediction_rf, as.factor(validation_final$classe))
+cm_rf
+
+```
+We see that using random forests we got accuracy of 99% and out of sample error is 0.6% and variables tried at each split - 27 gives us most accurate model
+
+## 5.c. Prediction with Boosting
+
+```{r Boosting}
+
+model_boosting <- train(classe ~ ., data=training_final, method="gbm", trControl=controlRF, verbose = FALSE)
+prediction_boosting <- predict(model_boosting, newdata = validation_final)
+cm_boosting <- confusionMatrix(prediction_boosting, as.factor(validation_final$classe))
+cm_boosting
+
+```
+we see that using boosting we have an accuracy of around 96%
+
+## 6. Conclusion
+
+By looking at all the 3 models we run, random forest is the best model on the validation dataset and we wil be using this on the testing data 
+
+```{r Conclusion}
+
+Results_testing <- predict(model_rf, newdata = testing_2)
+Results_testing
+
+```
