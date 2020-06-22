@@ -1,3 +1,0 @@
-# Practical-machine-learning 
-
-Yo!!
